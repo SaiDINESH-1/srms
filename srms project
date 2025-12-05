@@ -1,0 +1,540 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define STUDENT_FILE    "students.txt"
+#define CREDENTIAL_FILE "credentials.txt"
+#define ADD_REQUEST_FILE "add_requests.txt"
+#define UPDATE_REQUEST_FILE "update_requests.txt"
+
+struct Student {
+    char regID[20];
+    char name[50];
+    float cgpa;
+    char section[20];
+    char branch[50];
+    char phone[15];
+};
+
+char currentUser[20];
+char currentRole[20];
+
+// Function declarations
+int loginSystem(const char *expectedRole);
+void mainMenu(void);
+void adminMenu(void);
+void staffMenu(void);
+void guestMenu(void);
+
+// Student direct operations (Admin only)
+void addStudent(void);
+void displayStudents(void);
+void searchStudent(void);
+void updateStudent(void);
+void deleteStudent(void);
+
+// Staff request functions
+void requestAddStudent(void);
+void requestUpdateStudent(void);
+
+// Admin request approval
+void viewAddRequests(void);
+void viewUpdateRequests(void);
+void approveAddRequest(void);
+void approveUpdateRequest(void);
+
+// Helper
+void updateStudentFromRequest(struct Student stNew);
+
+// ---------------------------------------------------------
+
+int main(void) {
+    int choice;
+
+    while (1) {
+        printf("\n================ LOGIN TYPE SELECTION ================\n");
+        printf("1. Admin Login\n");
+        printf("2. Staff Login\n");
+        printf("3. Guest Login\n");
+        printf("4. Exit Program\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch (choice) {
+        case 1: if (loginSystem("admin")) mainMenu(); else printf("Invalid admin.\n"); break;
+        case 2: if (loginSystem("staff")) mainMenu(); else printf("Invalid staff.\n"); break;
+        case 3: if (loginSystem("guest")) mainMenu(); else printf("Invalid guest.\n"); break;
+        case 4: printf("Bye!\n"); return 0;
+        default: printf("Invalid choice.\n");
+        }
+    }
+}
+
+// ---------------------------------------------------------
+
+int loginSystem(const char *expectedRole) {
+    char username[20], password[20], fileUser[20], filePass[20], fileRole[20];
+
+    printf("\nLOGIN (%s)\n", expectedRole);
+    printf("Username: "); scanf("%19s", username);
+    printf("Password: "); scanf("%19s", password);
+
+    FILE *fp = fopen(CREDENTIAL_FILE, "r");
+    if (!fp) return 0;
+
+    while (fscanf(fp, "%19s %19s %19s", fileUser, filePass, fileRole) == 3) {
+        if (strcmp(username, fileUser) == 0 &&
+            strcmp(password, filePass) == 0 &&
+            strcmp(fileRole, expectedRole) == 0) {
+
+            strcpy(currentUser, fileUser);
+            strcpy(currentRole, fileRole);
+            fclose(fp);
+            return 1;
+        }
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+// ---------------------------------------------------------
+
+void mainMenu(void) {
+    printf("\nLogged in as: %s (%s)\n", currentUser, currentRole);
+
+    if (strcmp(currentRole, "admin") == 0) adminMenu();
+    else if (strcmp(currentRole, "staff") == 0) staffMenu();
+    else guestMenu();
+}
+
+// -------------------- ADMIN MENU -------------------------
+
+void adminMenu(void) {
+    int ch;
+
+    do {
+        printf("\n------ ADMIN MENU ------\n");
+        printf("1. Add Student\n");
+        printf("2. Display Students\n");
+        printf("3. Search Student\n");
+        printf("4. Update Student\n");
+        printf("5. Delete Student\n");
+        printf("6. View Add Requests\n");
+        printf("7. Approve Add Request\n");
+        printf("8. View Update Requests\n");
+        printf("9. Approve Update Request\n");
+        printf("10. Logout\n");
+        printf("Enter choice: ");
+        scanf("%d", &ch);
+
+        switch (ch) {
+            case 1: addStudent(); break;
+            case 2: displayStudents(); break;
+            case 3: searchStudent(); break;
+            case 4: updateStudent(); break;
+            case 5: deleteStudent(); break;
+            case 6: viewAddRequests(); break;
+            case 7: approveAddRequest(); break;
+            case 8: viewUpdateRequests(); break;
+            case 9: approveUpdateRequest(); break;
+            case 10: return;
+            default: printf("Invalid.\n");
+        }
+    } while (1);
+}
+
+// -------------------- STAFF MENU -------------------------
+
+void staffMenu(void) {
+    int ch;
+
+    do {
+        printf("\n------ STAFF MENU ------\n");
+        printf("1. Request Add Student\n");
+        printf("2. Request Update Student\n");
+        printf("3. Display Students\n");
+        printf("4. Search Student\n");
+        printf("5. Logout\n");
+        printf("Enter choice: ");
+        scanf("%d", &ch);
+
+        switch (ch) {
+            case 1: requestAddStudent(); break;
+            case 2: requestUpdateStudent(); break;
+            case 3: displayStudents(); break;
+            case 4: searchStudent(); break;
+            case 5: return;
+            default: printf("Invalid.\n");
+        }
+    } while (1);
+}
+
+// -------------------- GUEST MENU -------------------------
+
+void guestMenu(void) {
+    int ch;
+
+    do {
+        printf("\n------ GUEST MENU ------\n");
+        printf("1. Display Students\n");
+        printf("2. Search Student\n");
+        printf("3. Logout\n");
+        printf("Enter choice: ");
+        scanf("%d", &ch);
+
+        switch (ch) {
+            case 1: displayStudents(); break;
+            case 2: searchStudent(); break;
+            case 3: return;
+            default: printf("Invalid.\n");
+        }
+    } while (1);
+}
+
+// ---------------------------------------------------------
+// ADD STUDENT 
+
+void addStudent(void) {
+    FILE *fp = fopen(STUDENT_FILE, "a");
+    struct Student st;
+
+    if (!fp) { printf("Error!\n"); return; }
+
+    printf("Reg ID: "); scanf("%19s", st.regID);
+
+    getchar();
+    printf("Name: "); fgets(st.name, 50, stdin); st.name[strcspn(st.name, "\n")] = 0;
+
+    printf("CGPA: "); scanf("%f", &st.cgpa);
+
+    getchar();
+    printf("Section: "); fgets(st.section, 20, stdin); st.section[strcspn(st.section, "\n")] = 0;
+
+    printf("Branch: "); fgets(st.branch, 50, stdin); st.branch[strcspn(st.branch, "\n")] = 0;
+
+    printf("Phone: "); scanf("%14s", st.phone);
+
+    fprintf(fp, "%s|%s|%.2f|%s|%s|%s\n",
+            st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+
+    fclose(fp);
+    printf("Student Added.\n");
+}
+
+// ---------------------------------------------------------
+
+void displayStudents(void) {
+    FILE *fp = fopen(STUDENT_FILE, "r");
+    struct Student st;
+
+    if (!fp) { printf("No records.\n"); return; }
+
+    printf("\nRegID\tName\tCGPA\tSection\tBranch\tPhone\n");
+    printf("--------------------------------------------------------\n");
+
+    while (fscanf(fp, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone) == 6) {
+
+        printf("%s\t%s\t%.2f\t%s\t%s\t%s\n",
+               st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+    }
+
+    fclose(fp);
+}
+
+// ---------------------------------------------------------
+
+void searchStudent(void) {
+    FILE *fp = fopen(STUDENT_FILE, "r");
+    struct Student st;
+    char id[20];
+    int found = 0;
+
+    if (!fp) { printf("No records.\n"); return; }
+
+    printf("Enter RegID: "); scanf("%19s", id);
+
+    while (fscanf(fp, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone) == 6) {
+
+        if (strcmp(st.regID, id) == 0) {
+            printf("\nFound:\n");
+            printf("RegID: %s\nName: %s\nCGPA: %.2f\nSection: %s\nBranch: %s\nPhone: %s\n",
+                   st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+            found = 1;
+        }
+    }
+
+    if (!found) printf("Not found.\n");
+
+    fclose(fp);
+}
+
+// ---------------------------------------------------------
+
+void updateStudent(void) {
+    FILE *fp = fopen(STUDENT_FILE, "r");
+    FILE *temp = fopen("temp.txt", "w");
+    struct Student st;
+    char id[20];
+    int found = 0;
+
+    if (!fp || !temp) { printf("Error.\n"); return; }
+
+    printf("Enter RegID to Update: ");
+    scanf("%19s", id);
+
+    getchar();
+
+    while (fscanf(fp, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone) == 6) {
+
+        if (strcmp(st.regID, id) == 0) {
+            found = 1;
+
+            printf("New Name: "); fgets(st.name, 50, stdin); st.name[strcspn(st.name, "\n")] = 0;
+            printf("New CGPA: "); scanf("%f", &st.cgpa);
+            getchar();
+            printf("New Section: "); fgets(st.section, 20, stdin); st.section[strcspn(st.section, "\n")] = 0;
+            printf("New Branch: "); fgets(st.branch, 50, stdin); st.branch[strcspn(st.branch, "\n")] = 0;
+            printf("New Phone: "); scanf("%14s", st.phone);
+        }
+
+        fprintf(temp, "%s|%s|%.2f|%s|%s|%s\n",
+                st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+    }
+
+    fclose(fp);
+    fclose(temp);
+
+    remove(STUDENT_FILE);
+    rename("temp.txt", STUDENT_FILE);
+
+    printf(found ? "Student Updated.\n" : "Not found.\n");
+}
+
+// ---------------------------------------------------------
+
+void deleteStudent(void) {
+    FILE *fp = fopen(STUDENT_FILE, "r");
+    FILE *temp = fopen("temp.txt", "w");
+    struct Student st;
+    char id[20];
+    int found = 0;
+
+    printf("Enter RegID to Delete: ");
+    scanf("%19s", id);
+
+    while (fscanf(fp, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone) == 6) {
+
+        if (strcmp(st.regID, id) == 0) { found = 1; continue; }
+
+        fprintf(temp, "%s|%s|%.2f|%s|%s|%s\n",
+                st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+    }
+
+    fclose(fp);
+    fclose(temp);
+
+    remove(STUDENT_FILE);
+    rename("temp.txt", STUDENT_FILE);
+
+    printf(found ? "Deleted.\n" : "Not found.\n");
+}
+
+// ---------------------------------------------------------
+// STAFF REQUEST FUNCTIONS
+// ---------------------------------------------------------
+
+void requestAddStudent(void) {
+    FILE *fp = fopen(ADD_REQUEST_FILE, "a");
+    struct Student st;
+
+    if (!fp) { printf("Error.\n"); return; }
+
+    printf("Reg ID: "); scanf("%19s", st.regID);
+    getchar();
+    printf("Name: "); fgets(st.name, 50, stdin); st.name[strcspn(st.name, "\n")] = 0;
+    printf("CGPA: "); scanf("%f", &st.cgpa);
+    getchar();
+    printf("Section: "); fgets(st.section, 20, stdin); st.section[strcspn(st.section, "\n")] = 0;
+    printf("Branch: "); fgets(st.branch, 50, stdin); st.branch[strcspn(st.branch, "\n")] = 0;
+    printf("Phone: "); scanf("%14s", st.phone);
+
+    fprintf(fp, "%s|%s|%.2f|%s|%s|%s\n",
+            st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+
+    fclose(fp);
+
+    printf("Request Sent.\n");
+}
+
+void requestUpdateStudent(void) {
+    FILE *fp = fopen(UPDATE_REQUEST_FILE, "a");
+    struct Student st;
+
+    if (!fp) { printf("Error.\n"); return; }
+
+    printf("Reg ID to Update: "); scanf("%19s", st.regID);
+    getchar();
+    printf("New Name: "); fgets(st.name, 50, stdin); st.name[strcspn(st.name, "\n")] = 0;
+    printf("New CGPA: "); scanf("%f", &st.cgpa);
+    getchar();
+    printf("New Section: "); fgets(st.section, 20, stdin); st.section[strcspn(st.section, "\n")] = 0;
+    printf("New Branch: "); fgets(st.branch, 50, stdin); st.branch[strcspn(st.branch, "\n")] = 0;
+    printf("New Phone: "); scanf("%14s", st.phone);
+
+    fprintf(fp, "%s|%s|%.2f|%s|%s|%s\n",
+            st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+
+    fclose(fp);
+
+    printf("Update Request Sent.\n");
+}
+
+// ---------------------------------------------------------
+// ADMIN VIEW REQUESTS
+// ---------------------------------------------------------
+
+void viewAddRequests(void) {
+    FILE *fp = fopen(ADD_REQUEST_FILE, "r");
+    struct Student st;
+
+    if (!fp) { printf("No add requests.\n"); return; }
+
+    printf("\n--- Add Requests ---\n");
+
+    while (fscanf(fp, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone) == 6) {
+
+        printf("%s | %s | %.2f | %s | %s | %s\n",
+               st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+    }
+
+    fclose(fp);
+}
+
+void viewUpdateRequests(void) {
+    FILE *fp = fopen(UPDATE_REQUEST_FILE, "r");
+    struct Student st;
+
+    if (!fp) { printf("No update requests.\n"); return; }
+
+    printf("\n--- Update Requests ---\n");
+
+    while (fscanf(fp, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone) == 6) {
+
+        printf("%s | %s | %.2f | %s | %s | %s\n",
+               st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+    }
+
+    fclose(fp);
+}
+
+// ---------------------------------------------------------
+// ADMIN APPROVE REQUESTS
+// ---------------------------------------------------------
+
+void approveAddRequest(void) {
+    FILE *req = fopen(ADD_REQUEST_FILE, "r");
+    FILE *temp = fopen("temp_req.txt", "w");
+    struct Student st;
+    char target[20];
+    int found = 0;
+
+    if (!req || !temp) { printf("Error.\n"); return; }
+
+    printf("Enter RegID to Approve: ");
+    scanf("%19s", target);
+
+    while (fscanf(req, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone)==6) {
+
+        if (strcmp(st.regID, target) == 0) {
+            found = 1;
+
+            FILE *stu = fopen(STUDENT_FILE, "a");
+            fprintf(stu, "%s|%s|%.2f|%s|%s|%s\n",
+                    st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+            fclose(stu);
+
+            continue;
+        }
+
+        fprintf(temp, "%s|%s|%.2f|%s|%s|%s\n",
+                st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+    }
+
+    fclose(req);
+    fclose(temp);
+
+    remove(ADD_REQUEST_FILE);
+    rename("temp_req.txt", ADD_REQUEST_FILE);
+
+    printf(found ? "Add Request Approved.\n" : "Request Not Found.\n");
+}
+
+// ---------------------------------------------------------
+
+void updateStudentFromRequest(struct Student stNew) {
+    FILE *fp = fopen(STUDENT_FILE, "r");
+    FILE *temp = fopen("temp2.txt", "w");
+    struct Student st;
+
+    while (fscanf(fp, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone)==6) {
+
+        if (strcmp(st.regID, stNew.regID) == 0) {
+            fprintf(temp, "%s|%s|%.2f|%s|%s|%s\n",
+                    stNew.regID, stNew.name, stNew.cgpa,
+                    stNew.section, stNew.branch, stNew.phone);
+        } else {
+            fprintf(temp, "%s|%s|%.2f|%s|%s|%s\n",
+                    st.regID, st.name, st.cgpa,
+                    st.section, st.branch, st.phone);
+        }
+    }
+
+    fclose(fp);
+    fclose(temp);
+
+    remove(STUDENT_FILE);
+    rename("temp2.txt", STUDENT_FILE);
+}
+
+void approveUpdateRequest(void) {
+    FILE *req = fopen(UPDATE_REQUEST_FILE, "r");
+    FILE *temp = fopen("temp_upd.txt", "w");
+    struct Student st;
+    char target[20];
+    int found = 0;
+
+    if (!req || !temp) { printf("Error.\n"); return; }
+
+    printf("Enter RegID to Approve Update: ");
+    scanf("%19s", target);
+
+    while (fscanf(req, "%19[^|]|%49[^|]|%f|%19[^|]|%49[^|]|%14[^\n]\n",
+        st.regID, st.name, &st.cgpa, st.section, st.branch, st.phone)==6) {
+
+        if (strcmp(st.regID, target) == 0) {
+            found = 1;
+            updateStudentFromRequest(st);
+            continue;
+        }
+
+        fprintf(temp, "%s|%s|%.2f|%s|%s|%s\n",
+                st.regID, st.name, st.cgpa, st.section, st.branch, st.phone);
+    }
+
+    fclose(req);
+    fclose(temp);
+
+    remove(UPDATE_REQUEST_FILE);
+    rename("temp_upd.txt", UPDATE_REQUEST_FILE);
+
+    printf(found ? "Update Request Approved.\n" : "Request Not Found.\n");
+}
